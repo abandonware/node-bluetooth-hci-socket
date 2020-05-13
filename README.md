@@ -58,7 +58,7 @@ npm install @abandonware/bluetooth-hci-socket
 ## Usage
 
 ```javascript
-var BluetoothHciSocket = require('bluetooth-hci-socket');
+var BluetoothHciSocket = require('@abandonware/bluetooth-hci-socket');
 ```
 
 ### Actions
