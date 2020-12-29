@@ -31,6 +31,7 @@ Note:
 | Name | USB VID | USB PID |
 |:---- | :------ | :-------|
 | BCM920702 Bluetooth 4.0 | 0x0a5c | 0x21e8 |
+| BCM920702 Bluetooth 4.0 | 0x0a5c | 0x21f1 |
 | BCM20702A0 Bluetooth 4.0 | 0x19ff | 0x0239 |
 | BCM20702A0 Bluetooth 4.0 | 0x0489 | 0xe07a |
 | BCM20702A0 Bluetooth 4.0 | 0x413c | 0x8143 |
