@@ -27,9 +27,9 @@
     "win32"
   ],
   "dependencies": {
+    "@mapbox/node-pre-gyp": "^1.0.5",
     "debug": "^4.3.1",
-    "nan": "^2.14.2",
-    "node-pre-gyp": "^0.17.0"
+    "nan": "^2.14.2"
   },
   "optionalDependencies": {
     "usb": "^1.6.3"
