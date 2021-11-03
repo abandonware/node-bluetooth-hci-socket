@@ -454,6 +454,9 @@ bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
 #endif
 
     l2socket = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+    if(l2socket == -1) {
+      return false;
+    }
 
     memset(&l2a, 0, sizeof(l2a));
     l2a.l2_family = AF_BLUETOOTH;
