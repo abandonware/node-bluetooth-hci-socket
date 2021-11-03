@@ -352,8 +352,16 @@ int BluetoothHciSocket::devIdFor(const int* pDevId, bool isUp) {
 
 int BluetoothHciSocket::kernelDisconnectWorkArounds(int length, char* data) {
   // HCI Event - LE Meta Event - LE Connection Complete => manually create L2CAP socket to force kernel to book keep
-  // HCI Event - Disconn Complete =======================> close socket from above
+  // this socket will be closed immediately.
 
+  // The if statement:
+  // data[0] == LE Meta Event (HCI_EVENT_PKT)
+  // data[1] == HCI_EV_LE_META
+  // data[2] == plen (0x13)
+  // data[3] = HCI_EV_LE_CONN_COMPLETE (0x01)
+  // data[4] == Status (0x00 = Success)
+  // data[5,6] == handle (little endian)
+  // data[7] == role (0x00 = Master)
   if (length == 22 && data[0] == 0x04 && data[1] == 0x3e && data[2] == 0x13 && data[3] == 0x01 && data[4] == 0x00 && data[7] == 0x01) {
     int l2socket;
     struct sockaddr_l2 l2a = {};
@@ -388,6 +396,7 @@ int BluetoothHciSocket::kernelDisconnectWorkArounds(int length, char* data) {
     l2a.l2_cid = l2cid;
     l2a.l2_bdaddr_type = data[8] + 1; // BDADDR_LE_PUBLIC (0x01), BDADDR_LE_RANDOM (0x02)
 
+    // the kernel needs to flush the socket before we continue
     while (connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a) == -1) ) {
       if(errno == EINTR) {
         continue;
@@ -422,6 +431,11 @@ bool BluetoothHciSocket::setConnectionParameters(
 
 bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
 {
+  // if statement:
+  // data[0]: HCI_COMMAND_PKT
+  // data[1,2]: HCI_OP_LE_CREATE_CONN (0x200d)
+  // data[3]: plen
+
   if (length == 29 && data[0] == 0x01 && data[1] == 0x0d && data[2] == 0x20 && data[3] == 0x19) {
     int l2socket;
     struct sockaddr_l2 l2a;
@@ -462,6 +476,7 @@ bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
 
     this->setConnectionParameters(connMinInterval, connMaxInterval, connLatency, supervisionTimeout);
 
+    // the kernel needs to flush the socket before we continue
     while (connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a) == -1) ) {
       if(errno == EINTR) {
         continue;
