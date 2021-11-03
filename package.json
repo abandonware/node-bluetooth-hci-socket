@@ -38,6 +38,7 @@
     "jshint": "^2.12.0"
   },
   "scripts": {
+    "build": "node-pre-gyp build",
     "install": "node-pre-gyp install --fallback-to-build",
     "test": "jshint lib/*.js && node test.js"
   },
