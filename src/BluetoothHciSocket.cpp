@@ -400,6 +400,25 @@ int BluetoothHciSocket::kernelDisconnectWorkArounds(int length, char* data) {
   }
 }
 
+bool BluetoothHciSocket::setConnectionParameters(
+    unsigned short connMinInterval,
+    unsigned short connMaxInterval,
+    unsigned short connLatency,
+    unsigned short supervisionTimeout
+){
+    char command[128];
+
+    // override the HCI devices connection parameters using debugfs
+    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/conn_min_interval", connMinInterval, this->_devId);
+    system(command);
+    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/conn_max_interval", connMaxInterval, this->_devId);
+    system(command);
+    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/conn_latency", connLatency, this->_devId);
+    system(command);
+    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/supervision_timeout", supervisionTimeout, this->_devId);
+    system(command);
+}
+
 
 bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
 {
@@ -411,7 +430,6 @@ bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
     unsigned short connMaxInterval;
     unsigned short connLatency;
     unsigned short supervisionTimeout;
-    char command[128];
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     l2cid = ATT_CID;
@@ -442,17 +460,16 @@ bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
     connLatency = (data[22] << 8) | data[21];
     supervisionTimeout = (data[24] << 8) | data[23];
 
-    // override the HCI devices connection parameters using debugfs
-    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/conn_min_interval", connMinInterval, this->_devId);
-    system(command);
-    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/conn_max_interval", connMaxInterval, this->_devId);
-    system(command);
-    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/conn_latency", connLatency, this->_devId);
-    system(command);
-    sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/supervision_timeout", supervisionTimeout, this->_devId);
-    system(command);
+    this->setConnectionParameters(connMinInterval, connMaxInterval, connLatency, supervisionTimeout);
 
-    connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a));
+    while (connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a) == -1) ) {
+      if(errno == EINTR) {
+        continue;
+      }
+      close(l2socket);
+      return false;
+    }
+    
     return true;
   }
 
