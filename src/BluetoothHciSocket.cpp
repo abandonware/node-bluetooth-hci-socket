@@ -404,12 +404,12 @@ int BluetoothHciSocket::kernelDisconnectWorkArounds(int length, char* data) {
       close(l2socket);
       return -3;
     }
+  }
 
     return 0;
-  }
 }
 
-bool BluetoothHciSocket::setConnectionParameters(
+void BluetoothHciSocket::setConnectionParameters(
     unsigned short connMinInterval,
     unsigned short connMaxInterval,
     unsigned short connLatency,

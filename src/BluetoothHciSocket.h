@@ -41,7 +41,7 @@ private:
   int devIdFor(const int* devId, bool isUp);
   int kernelDisconnectWorkArounds(int length, char* data);
   bool kernelConnectWorkArounds(char* data, int length);
-  bool setConnectionParameters(unsigned short connMinInterval, unsigned short connMaxInterval, unsigned short connLatency, unsigned short supervisionTimeout);
+  void setConnectionParameters(unsigned short connMinInterval, unsigned short connMaxInterval, unsigned short connLatency, unsigned short supervisionTimeout);
 
   static void PollCloseCallback(uv_poll_t* handle);
   static void PollCallback(uv_poll_t* handle, int status, int events);
