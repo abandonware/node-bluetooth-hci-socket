@@ -480,7 +480,7 @@ bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
     this->setConnectionParameters(connMinInterval, connMaxInterval, connLatency, supervisionTimeout);
 
     // the kernel needs to flush the socket before we continue
-    while (connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a) == -1) ) {
+    while (connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a))  == -1) {
       if(errno == EINTR) {
         continue;
       }
