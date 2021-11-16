@@ -27,7 +27,7 @@
     "win32"
   ],
   "dependencies": {
-    "@mapbox/node-pre-gyp": "^1.0.5",
+    "node-gyp": "^7.1.2",
     "debug": "^4.3.2",
     "nan": "^2.15.0"
   },
@@ -38,8 +38,8 @@
     "jshint": "^2.13.1"
   },
   "scripts": {
-    "build": "node-pre-gyp build",
-    "install": "node-pre-gyp install --fallback-to-build",
+    "build": "node-gyp build",
+    "install": "node-gyp install",
     "test": "jshint lib/*.js && node test.js"
   },
   "binary": {
