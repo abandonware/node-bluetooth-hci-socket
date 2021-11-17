@@ -27,7 +27,6 @@
     "win32"
   ],
   "dependencies": {
-    "node-gyp": "^7.1.2",
     "debug": "^4.3.2",
     "nan": "^2.15.0"
   },
