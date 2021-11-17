@@ -41,13 +41,6 @@
     "install": "node-gyp install",
     "test": "jshint lib/*.js && node test.js"
   },
-  "binary": {
-    "module_name": "bluetooth_hci_socket",
-    "module_path": "./lib/binding/",
-    "host": "https://github.com/abandonware/node-bluetooth-hci-socket/releases/download/",
-    "package_name": "{module_name}-{version}-{node_abi}-{platform}-{arch}.tar.gz",
-    "remote_path": "{version}"
-  },
   "jshintConfig": {
     "esversion": 6
   }
