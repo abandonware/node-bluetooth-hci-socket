@@ -37,8 +37,6 @@
     "jshint": "^2.13.1"
   },
   "scripts": {
-    "build": "node-gyp build",
-    "install": "node-gyp install",
     "test": "jshint lib/*.js && node test.js"
   },
   "jshintConfig": {
