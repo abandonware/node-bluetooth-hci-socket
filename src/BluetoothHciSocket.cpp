@@ -404,9 +404,11 @@ int BluetoothHciSocket::kernelDisconnectWorkArounds(int length, char* data) {
       close(l2socket);
       return -3;
     }
+    
+    close(l2socket);
   }
 
-    return 0;
+  return 0;
 }
 
 void BluetoothHciSocket::setConnectionParameters(
@@ -487,6 +489,7 @@ bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
       close(l2socket);
       return false;
     }
+    close(l2socket);
     
     return true;
   }
