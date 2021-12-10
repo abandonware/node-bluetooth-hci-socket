@@ -58,10 +58,6 @@ struct hci_dev_list_req {
   struct hci_dev_req dev_req[0];
 };
 
-typedef struct {
-  uint8_t b[6];
-} __attribute__((packed)) bdaddr_t;
-
 struct hci_dev_info {
   uint16_t dev_id;
   char     name[8];
@@ -95,13 +91,6 @@ struct hci_dev_info {
   uint32_t byte_tx;
 };
 
-struct sockaddr_l2 {
-  sa_family_t    l2_family;
-  unsigned short l2_psm;
-  bdaddr_t       l2_bdaddr;
-  unsigned short l2_cid;
-  uint8_t        l2_bdaddr_type;
-};
 
 using namespace v8;
 
@@ -125,6 +114,7 @@ NAN_MODULE_INIT(BluetoothHciSocket::Init) {
   Nan::SetPrototypeMethod(tmpl, "setFilter", SetFilter);
   Nan::SetPrototypeMethod(tmpl, "stop", Stop);
   Nan::SetPrototypeMethod(tmpl, "write", Write);
+  Nan::SetPrototypeMethod(tmpl, "cleanup", Cleanup);
 
   Nan::Set(target, Nan::New("BluetoothHciSocket").ToLocalChecked(), Nan::GetFunction(tmpl).ToLocalChecked());
 }
@@ -158,6 +148,78 @@ BluetoothHciSocket::~BluetoothHciSocket() {
   uv_close((uv_handle_t*)&this->_pollHandle, (uv_close_cb)BluetoothHciSocket::PollCloseCallback);
 
   close(this->_socket);
+}
+
+void BluetoothHciL2Socket::connect(){
+  _socket = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+  if(_socket < 0) return;
+
+  if (bind(_socket, (struct sockaddr*)&l2_src, sizeof(l2_src)) < 0) {
+    close(_socket);
+    _socket = -1;
+    return;
+  }
+
+  // the kernel needs to flush the socket before we continue
+  while (::connect(_socket, (struct sockaddr *)&l2_dst, sizeof(l2_dst)) == -1 ) {
+    if(errno == EINTR) {
+      continue;
+    }
+    close(_socket);
+    _socket = -1;
+    break;
+  }
+}
+
+void BluetoothHciL2Socket::disconnect(){
+  if(this->_socket != -1) close(this->_socket);
+  this->_socket = -1;
+}
+
+void BluetoothHciL2Socket::expires(uint64_t expires){
+  _expires = expires;
+}
+
+uint64_t BluetoothHciL2Socket::expires() const {
+  return _expires;
+}
+
+bool BluetoothHciL2Socket::connected() const {
+  return this->_socket != -1;
+}
+
+BluetoothHciL2Socket::BluetoothHciL2Socket(BluetoothHciSocket* parent, unsigned char* srcaddr, char srcType, char* bdaddr, char bdaddrType, uint64_t expires): _parent(parent), _expires(expires), l2_src({}), l2_dst({}) {
+    unsigned short l2cid;
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    l2cid = ATT_CID;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+    l2cid = bswap_16(ATT_CID);
+#else
+    #error "Unknown byte order"
+#endif
+    
+    memset(&l2_src, 0, sizeof(l2_src));
+    l2_src.l2_family = AF_BLUETOOTH;
+    l2_src.l2_cid = l2cid;
+    memcpy(&l2_src.l2_bdaddr, srcaddr, sizeof(l2_src.l2_bdaddr));
+    l2_src.l2_bdaddr_type = srcType;
+      
+    memset(&l2_dst, 0, sizeof(l2_dst));
+    l2_dst.l2_family = AF_BLUETOOTH;
+    memcpy(&l2_dst.l2_bdaddr, bdaddr, sizeof(l2_dst.l2_bdaddr));
+    l2_dst.l2_cid = l2cid;
+    l2_dst.l2_bdaddr_type = bdaddrType; // BDADDR_LE_PUBLIC (0x01), BDADDR_LE_RANDOM (0x02)
+
+    connect();
+}
+
+
+BluetoothHciL2Socket::~BluetoothHciL2Socket(){
+  if(this->_socket != -1) disconnect();
+  if(_expires == 0){
+    this->_parent->_l2sockets_connected.erase(l2_dst.l2_bdaddr);
+  }
 }
 
 void BluetoothHciSocket::start() {
@@ -352,95 +414,72 @@ int BluetoothHciSocket::devIdFor(const int* pDevId, bool isUp) {
 
 int BluetoothHciSocket::kernelDisconnectWorkArounds(int length, char* data) {
   // HCI Event - LE Meta Event - LE Connection Complete => manually create L2CAP socket to force kernel to book keep
-  // HCI Event - Disconn Complete =======================> close socket from above
+  // this socket will be closed immediately.
 
-  if (length == 22 && data[0] == 0x04 && data[1] == 0x3e && data[2] == 0x13 && data[3] == 0x01 && data[4] == 0x00 && data[7] == 0x01) {
-    int l2socket;
-    struct sockaddr_l2 l2a = {};
-    unsigned short l2cid;
+  // The if statement:
+  // data[0] = LE Meta Event (HCI_EVENT_PKT)
+  // data[1] = HCI_EV_LE_META
+  // data[2] = plen (0x13)
+  // data[3] = HCI_EV_LE_CONN_COMPLETE (0x01)
+  // data[4] = Status (0x00 = Success)
+  // data[5,6] = handle (little endian)
+  // data[7] = role (0x00 = Master)
+  // data[9,]  = device bt address
+  if (length == 22 && data[0] == 0x04 && data[1] == 0x3e && data[2] == 0x13 && data[3] == 0x01 && data[4] == 0x00) { //  && data[7] == 0x01
+    unsigned short handle = *((unsigned short*)(&data[5]));
+    //printf("HCI_EV_LE_CONN_COMPLETE for handle %d\n", handle);
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-    l2cid = ATT_CID;
-#elif __BYTE_ORDER == __BIG_ENDIAN
-    l2cid = bswap_16(ATT_CID);
-#else
-    #error "Unknown byte order"
-#endif
+    std::shared_ptr<BluetoothHciL2Socket> l2socket_ptr;
 
-    l2socket = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
-    if(l2socket == -1) {
-      return -1;
-    }
+    auto it = _l2sockets_connected.find(*(bdaddr_t*)&data[9]);
+    if(it != _l2sockets_connected.end()){
+      l2socket_ptr = it->second.lock();
+    } else {
+      auto it2 = _l2sockets_connecting.find(*(bdaddr_t*)&data[9]);
 
-    memset(&l2a, 0, sizeof(l2a));
-    l2a.l2_family = AF_BLUETOOTH;
-    l2a.l2_cid = l2cid;
-    memcpy(&l2a.l2_bdaddr, _address, sizeof(l2a.l2_bdaddr));
-    l2a.l2_bdaddr_type = _addressType;
-    if (bind(l2socket, (struct sockaddr*)&l2a, sizeof(l2a)) < 0) {
-      close(l2socket);
-      return -2;
-    }
-
-    memset(&l2a, 0, sizeof(l2a));
-    l2a.l2_family = AF_BLUETOOTH;
-    memcpy(&l2a.l2_bdaddr, &data[9], sizeof(l2a.l2_bdaddr));
-    l2a.l2_cid = l2cid;
-    l2a.l2_bdaddr_type = data[8] + 1; // BDADDR_LE_PUBLIC (0x01), BDADDR_LE_RANDOM (0x02)
-
-    while (connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a) == -1) ) {
-      if(errno == EINTR) {
-        continue;
+      if(it2 != _l2sockets_connecting.end()){
+        //successful connection (we have a handle for the socket!)
+        l2socket_ptr = it2->second;
+        l2socket_ptr->expires(0);
+        _l2sockets_connecting.erase(it2);
+      } else {
+        l2socket_ptr = std::make_shared<BluetoothHciL2Socket>(this, _address, _addressType, &data[9], data[8] + 1, 0);
+        if(!l2socket_ptr->connected()){
+          //printf("%02x:%02x:%02x:%02x:%02x:%02x handle %d was not connected\n", data[9], data[10], data[11], data[12], data[13], data[14],  handle);
+          return 0;
+        }
+        this->_l2sockets_connected[*(bdaddr_t*)&data[9]] = l2socket_ptr;
       }
-      close(l2socket);
-      return -3;
     }
 
-    return 0;
+      
+    if(!l2socket_ptr->connected()){
+      //printf("%02x:%02x:%02x:%02x:%02x:%02x handle %d was not connected (2)\n", data[9], data[10], data[11], data[12], data[13], data[14], handle);
+      return 0;
+    }
+
+    
+    handle = handle % 256;
+    this->_l2sockets_handles[handle] = l2socket_ptr;
+  } else if (length == 7 && data[0] == 0x04 && data[1] == 0x05 && data[2] == 0x04 && data[3] == 0x00) {
+    
+    // HCI Event - Disconn Complete =======================> close socket from above
+    unsigned short handle = *((unsigned short*)(&data[4]));
+    //printf("Disconn Complete for handle %d (%d)\n", handle, this->_l2sockets_handles.count(handle));
+    handle = handle % 256;
+    this->_l2sockets_handles.erase(handle);
   }
+
+  return 0;
 }
 
-
-bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
-{
-  if (length == 29 && data[0] == 0x01 && data[1] == 0x0d && data[2] == 0x20 && data[3] == 0x19) {
-    int l2socket;
-    struct sockaddr_l2 l2a;
-    unsigned short l2cid;
-    unsigned short connMinInterval;
-    unsigned short connMaxInterval;
-    unsigned short connLatency;
-    unsigned short supervisionTimeout;
+void BluetoothHciSocket::setConnectionParameters(
+    unsigned short connMinInterval,
+    unsigned short connMaxInterval,
+    unsigned short connLatency,
+    unsigned short supervisionTimeout
+){
     char command[128];
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-    l2cid = ATT_CID;
-#elif __BYTE_ORDER == __BIG_ENDIAN
-    l2cid = bswap_16(ATT_CID);
-#else
-    #error "Unknown byte order"
-#endif
-
-    l2socket = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
-
-    memset(&l2a, 0, sizeof(l2a));
-    l2a.l2_family = AF_BLUETOOTH;
-    l2a.l2_cid = l2cid;
-    memcpy(&l2a.l2_bdaddr, this->_address, sizeof(l2a.l2_bdaddr));
-    l2a.l2_bdaddr_type = this->_addressType;
-    bind(l2socket, (struct sockaddr*)&l2a, sizeof(l2a));
-
-    memset(&l2a, 0, sizeof(l2a));
-    l2a.l2_family = AF_BLUETOOTH;
-    memcpy(&l2a.l2_bdaddr, &data[10], sizeof(l2a.l2_bdaddr));
-    l2a.l2_cid = l2cid;
-    l2a.l2_bdaddr_type = data[9] + 1; // BDADDR_LE_PUBLIC (0x01), BDADDR_LE_RANDOM (0x02)
-
-    // extract the connection parameter
-    connMinInterval = (data[18] << 8) | data[17];
-    connMaxInterval = (data[20] << 8) | data[19];
-    connLatency = (data[22] << 8) | data[21];
-    supervisionTimeout = (data[24] << 8) | data[23];
 
     // override the HCI devices connection parameters using debugfs
     sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/conn_min_interval", connMinInterval, this->_devId);
@@ -451,12 +490,78 @@ bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
     system(command);
     sprintf(command, "echo %u > /sys/kernel/debug/bluetooth/hci%d/supervision_timeout", supervisionTimeout, this->_devId);
     system(command);
+}
 
-    connect(l2socket, (struct sockaddr *)&l2a, sizeof(l2a));
+
+bool BluetoothHciSocket::kernelConnectWorkArounds(char* data, int length)
+{
+  // if statement:
+  // data[0]: HCI_COMMAND_PKT
+  // data[1,2]: HCI_OP_LE_CREATE_CONN (0x200d)
+  // data[3]: plen
+  // data[10 ...] bdaddr
+
+  if (length == 29 && data[0] == 0x01 && data[1] == 0x0d && data[2] == 0x20 && data[3] == 0x19) {
+    unsigned short connMinInterval;
+    unsigned short connMaxInterval;
+    unsigned short connLatency;
+    unsigned short supervisionTimeout;
+
+    //printf("HCI_OP_LE_CREATE_CONN %02x:%02x:%02x:%02x:%02x:%02x\n", data[10], data[11], data[12], data[13], data[14], data[15]);
+
+    // extract the connection parameter
+    connMinInterval = (data[18] << 8) | data[17];
+    connMaxInterval = (data[20] << 8) | data[19];
+    connLatency = (data[22] << 8) | data[21];
+    supervisionTimeout = (data[24] << 8) | data[23];
+
+    this->setConnectionParameters(connMinInterval, connMaxInterval, connLatency, supervisionTimeout);
+
+    std::shared_ptr<BluetoothHciL2Socket> l2socket_ptr;
+    if(this->_l2sockets_connected.find(*(bdaddr_t*)&data[10]) != this->_l2sockets_connected.end()){
+      // we are refreshing the connection (which was connected)
+      l2socket_ptr = this->_l2sockets_connected[*(bdaddr_t*)&data[10]].lock();
+      l2socket_ptr->disconnect();
+      l2socket_ptr->connect();
+      // no expiration as we will continue to be "connected" on the other handle which must exist
+    } else if(this->_l2sockets_connecting.find(*(bdaddr_t*)&data[10]) != this->_l2sockets_connecting.end()){
+      // we were connecting but now we connect again
+      l2socket_ptr = this->_l2sockets_connecting[*(bdaddr_t*)&data[10]];
+      l2socket_ptr->disconnect();
+      l2socket_ptr->connect();
+      l2socket_ptr->expires(uv_hrtime() + L2_CONNECT_TIMEOUT);
+    } else{    
+      // 60000000000  = 1 minute
+      l2socket_ptr = std::make_shared<BluetoothHciL2Socket>(this, _address, _addressType, &data[10], data[9] + 1, uv_hrtime() + L2_CONNECT_TIMEOUT);
+      if(!l2socket_ptr->connected()){
+        return false;
+      }
+      this->_l2sockets_connecting[*(bdaddr_t*)&data[10]] = l2socket_ptr;
+    }
+
+    // returns true to skip sending the kernel this commoand
+    // the command will instead be sent by the connect() operation
     return true;
   }
 
   return false;
+}
+
+NAN_METHOD(BluetoothHciSocket::Cleanup) {
+  BluetoothHciSocket* p = node::ObjectWrap::Unwrap<BluetoothHciSocket>(info.This());
+  auto now = uv_hrtime();
+
+  for (auto it = p->_l2sockets_connecting.cbegin(); it != p->_l2sockets_connecting.cend() /* not hoisted */; /* no increment */)
+  {
+    if (now < it->second->expires())
+    {
+      p->_l2sockets_connecting.erase(it++);    // or "it = m.erase(it)" since C++11
+    }
+    else
+    {
+      ++it;
+    }
+  }
 }
 
 NAN_METHOD(BluetoothHciSocket::New) {
