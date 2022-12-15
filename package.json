@@ -1,6 +1,6 @@
 {
   "name": "@abandonware/bluetooth-hci-socket",
-  "version": "0.5.3-8",
+  "version": "0.5.3-9",
   "description": "Bluetooth HCI socket binding for Node.js",
   "main": "index.js",
   "types": "index.d.ts",
