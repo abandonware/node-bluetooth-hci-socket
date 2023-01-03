@@ -34,7 +34,6 @@ jobs:
       - name: Build Windows
         if: startsWith(runner.OS, 'windows') == true
         run: |
-          PATH=./node_modules/.bin:$PATH
           npm install --build-from-source
           ./node_modules/.bin/node-pre-gyp package
       - name: Test
