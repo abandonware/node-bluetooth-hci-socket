@@ -27,15 +27,15 @@
     "win32"
   ],
   "dependencies": {
-    "@mapbox/node-pre-gyp": "^1.0.5",
-    "debug": "^4.3.2",
-    "nan": "^2.15.0"
+    "@mapbox/node-pre-gyp": "^1.0.10",
+    "debug": "^4.3.4",
+    "nan": "^2.17.0"
   },
   "optionalDependencies": {
-    "usb": "^1.7.2"
+    "usb": "^1.9.2"
   },
   "devDependencies": {
-    "jshint": "^2.13.1"
+    "jshint": "^2.13.6"
   },
   "scripts": {
     "install": "node-pre-gyp install --fallback-to-build --update-binary",
