@@ -14,7 +14,7 @@ environment:
 
 install:
   - ps: Install-Product node $env:node_version $env:platform
-  - ps: npm install -g node-gyp node-pre-gyp-github
+  - cmd: npm install -g node-gyp node-pre-gyp-github
   - ps: if ($env:appveyor_repo_tag -match "true" -and $env:appveyor_repo_tag_name -match '^v?[0-9]') { $publish_binary=1; }
 
 build_script:
