@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: ${{ matrix.node_version }}
       - name: Install dependencies
+        if: startsWith(runner.OS, 'windows') == false
         run: |
           sudo apt -qq update
           sudo apt install -y libudev-dev
