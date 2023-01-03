@@ -7,8 +7,10 @@ environment:
   GYP_MSVS_VERSION: 2013
 
   matrix:
-    - node_version: '10'
     - node_version: '12'
+    - node_version: '14'
+    - node_version: '16'
+    - node_version: '18'
 
 install:
   - ps: Install-Product node $env:node_version $env:platform
