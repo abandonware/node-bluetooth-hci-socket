@@ -116,7 +116,7 @@ var LE_SET_ADVERTISE_ENABLE_CMD = OCF_LE_SET_ADVERTISE_ENABLE | OGF_LE_CTL << 10
 var HCI_SUCCESS = 0;
 
 function setFilter() {
-  var filter = new Buffer(14);
+  var filter = Buffer.alloc(14);
   var typeMask = (1 << HCI_EVENT_PKT) | (1 << HCI_ACLDATA_PKT);
   var eventMask1 = (1 << EVT_DISCONN_COMPLETE) | (1 << EVT_CMD_COMPLETE) | (1 << EVT_CMD_STATUS);
   var eventMask2 = (1 << (EVT_LE_META_EVENT - 32));
@@ -131,7 +131,7 @@ function setFilter() {
 }
 
 function setAdvertisingParameter() {
-  var cmd = new Buffer(19);
+  var cmd = Buffer.alloc(19);
 
   // header
   cmd.writeUInt8(HCI_COMMAND_PKT, 0);
@@ -146,7 +146,7 @@ function setAdvertisingParameter() {
   cmd.writeUInt8(0x00, 8); // adv type
   cmd.writeUInt8(0x00, 9); // own addr typ
   cmd.writeUInt8(0x00, 10); // direct addr type
-  (new Buffer('000000000000', 'hex')).copy(cmd, 11); // direct addr
+  (Buffer.from('000000000000', 'hex')).copy(cmd, 11); // direct addr
   cmd.writeUInt8(0x07, 17);
   cmd.writeUInt8(0x00, 18);
 
@@ -155,7 +155,7 @@ function setAdvertisingParameter() {
 };
 
 function setAdvertisingData(data) {
-  var cmd = new Buffer(36);
+  var cmd = Buffer.alloc(36);
 
   cmd.fill(0);
 
@@ -175,7 +175,7 @@ function setAdvertisingData(data) {
 }
 
 function setScanResponseData(data) {
-  var cmd = new Buffer(36);
+  var cmd = Buffer.alloc(36);
 
   cmd.fill(0);
 
@@ -195,7 +195,7 @@ function setScanResponseData(data) {
 }
 
 function setAdvertiseEnable(enabled) {
-  var cmd = new Buffer(5);
+  var cmd = Buffer.alloc(5);
 
   // header
   cmd.writeUInt8(HCI_COMMAND_PKT, 0);
@@ -219,6 +219,6 @@ console.log('isDevUp = ' + bluetoothHciSocket.isDevUp());
 
 setAdvertiseEnable(false);
 setAdvertisingParameter();
-setScanResponseData(new Buffer('0909657374696d6f74650e160a182eb8855fb5ddb601000200', 'hex'));
-setAdvertisingData(new Buffer('0201061aff4c000215b9407f30f5f8466eaff925556b57fe6d00010002b6', 'hex'));
+setScanResponseData(Buffer.from('0909657374696d6f74650e160a182eb8855fb5ddb601000200', 'hex'));
+setAdvertisingData(Buffer.from('0201061aff4c000215b9407f30f5f8466eaff925556b57fe6d00010002b6', 'hex'));
 setAdvertiseEnable(true);

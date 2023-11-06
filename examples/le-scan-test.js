@@ -69,7 +69,7 @@ var LE_SET_SCAN_ENABLE_CMD = OCF_LE_SET_SCAN_ENABLE | OGF_LE_CTL << 10;
 var HCI_SUCCESS = 0;
 
 function setFilter() {
-  var filter = new Buffer(14);
+  var filter = Buffer.alloc(14);
   var typeMask = (1 << HCI_EVENT_PKT);
   var eventMask1 = (1 << EVT_CMD_COMPLETE) | (1 << EVT_CMD_STATUS);
   var eventMask2 = (1 << (EVT_LE_META_EVENT - 32));
@@ -84,7 +84,7 @@ function setFilter() {
 }
 
 function setScanParameters() {
-  var cmd = new Buffer(11);
+  var cmd = Buffer.alloc(11);
 
   // header
   cmd.writeUInt8(HCI_COMMAND_PKT, 0);
@@ -104,7 +104,7 @@ function setScanParameters() {
 }
 
 function setScanEnable(enabled, duplicates) {
-  var cmd = new Buffer(6);
+  var cmd = Buffer.alloc(6);
 
   // header
   cmd.writeUInt8(HCI_COMMAND_PKT, 0);

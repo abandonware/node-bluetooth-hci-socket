@@ -54,7 +54,7 @@ bluetoothHciSocket.on('data', function(data) {
         console.log('\t' + latency);
         console.log('\t' + supervisionTimeout * 10);
 
-        writeHandle(handle, new Buffer('020001', 'hex'));
+        writeHandle(handle, Buffer.from('020001', 'hex'));
       }
     }
   } else if (data.readUInt8(0) === HCI_ACLDATA_PKT) {
@@ -112,7 +112,7 @@ var HCI_SUCCESS = 0;
 var HCI_OE_USER_ENDED_CONNECTION = 0x13;
 
 function setFilter() {
-  var filter = new Buffer(14);
+  var filter = Buffer.alloc(14);
   var typeMask = (1 << HCI_EVENT_PKT) | (1 << HCI_ACLDATA_PKT);
   var eventMask1 = (1 << EVT_DISCONN_COMPLETE) | (1 << EVT_CMD_COMPLETE) | (1 << EVT_CMD_STATUS);
   var eventMask2 = (1 << (EVT_LE_META_EVENT - 32));
@@ -131,7 +131,7 @@ setFilter();
 bluetoothHciSocket.start();
 
 function createConnection(address, addressType) {
-  var cmd = new Buffer(29);
+  var cmd = Buffer.alloc(29);
 
   // header
   cmd.writeUInt8(HCI_COMMAND_PKT, 0);
@@ -146,7 +146,7 @@ function createConnection(address, addressType) {
   cmd.writeUInt8(0x00, 8); // initiator filter
 
   cmd.writeUInt8(addressType === 'random' ? 0x01 : 0x00, 9); // peer address type
-  (new Buffer(address.split(':').reverse().join(''), 'hex')).copy(cmd, 10); // peer address
+  (Buffer.from(address.split(':').reverse().join(''), 'hex')).copy(cmd, 10); // peer address
 
   cmd.writeUInt8(0x00, 16); // own address type
 
@@ -161,7 +161,7 @@ function createConnection(address, addressType) {
 }
 
 function writeHandle(handle, data) {
-  var cmd = new Buffer(9 + data.length);
+  var cmd = Buffer.alloc(9 + data.length);
 
   // header
   cmd.writeUInt8(HCI_ACLDATA_PKT, 0);
@@ -176,7 +176,7 @@ function writeHandle(handle, data) {
 }
 
 function disconnectConnection(handle, reason) {
-  var cmd = new Buffer(7);
+  var cmd = Buffer.alloc(7);
 
   // header
   cmd.writeUInt8(HCI_COMMAND_PKT, 0);

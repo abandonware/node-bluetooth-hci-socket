@@ -97,7 +97,7 @@ var bluetoothHciSocket = new BluetoothHciSocket();
 #### Set Filter
 
 ```javascript
-var filter = new Buffer(14);
+var filter = Buffer.alloc(14);
 
 // ...
 
@@ -155,7 +155,7 @@ __Note:__ must be called after ```bindRaw``` or ```bindControl```.
 #### Write
 
 ```javascript
-var data = new Buffer(/* ... */);
+var data = Buffer.from(/* ... */);
 
 // ...
 
