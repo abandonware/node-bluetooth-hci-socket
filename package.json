@@ -38,6 +38,9 @@
   "devDependencies": {
     "jshint": "^2.13.6"
   },
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "scripts": {
     "install": "node-pre-gyp install --fallback-to-build --update-binary",
     "test": "jshint lib/*.js && node test.js"
