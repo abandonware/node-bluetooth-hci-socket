@@ -33,7 +33,7 @@
     "node-gyp": "^10.0.1"
   },
   "optionalDependencies": {
-    "usb": "^1.9.2"
+    "usb": "^2.11.0"
   },
   "devDependencies": {
     "jshint": "^2.13.6"
