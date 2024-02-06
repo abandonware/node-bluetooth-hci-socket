@@ -9,12 +9,16 @@
 // 1 minute in nanoseconds
 #define L2_CONNECT_TIMEOUT 60000000000
 
-typedef struct bdaddr_s {
+typedef struct bdaddr_s
+{
   uint8_t b[6];
 
-  bool operator<(const struct bdaddr_s& r) const {
-    for(int i = 0; i < 6; i++) {
-      if(b[i] >= r.b[i]) {
+  bool operator<(const struct bdaddr_s &r) const
+  {
+    for (int i = 0; i < 6; i++)
+    {
+      if (b[i] >= r.b[i])
+      {
         return false;
       }
     }
@@ -23,8 +27,9 @@ typedef struct bdaddr_s {
 
 } __attribute__((packed)) bdaddr_t;
 
-struct sockaddr_l2 {
-  sa_family_t    l2_family;
+struct sockaddr_l2
+{
+  sa_family_t l2_family;
   unsigned short l2_psm;
   bdaddr_t       l2_bdaddr;
   unsigned short l2_cid;
@@ -33,9 +38,10 @@ struct sockaddr_l2 {
 
 class BluetoothHciSocket;
 
-class BluetoothHciL2Socket {
-  public:
-  BluetoothHciL2Socket(BluetoothHciSocket* parent, unsigned char*, char, char*, char, uint64_t expires);
+class BluetoothHciL2Socket
+{
+public:
+  BluetoothHciL2Socket(BluetoothHciSocket *parent, unsigned char *, char, char *, char, uint64_t expires);
   ~BluetoothHciL2Socket();
   void disconnect();
   void connect();
@@ -43,16 +49,16 @@ class BluetoothHciL2Socket {
   uint64_t expires() const;
   bool connected() const;
 
-
-  private:
+private:
   int _socket;
-  BluetoothHciSocket* _parent;
+  BluetoothHciSocket *_parent;
   uint64_t _expires; // or 0 if connected
   struct sockaddr_l2 l2_src;
   struct sockaddr_l2 l2_dst;
 };
 
-class BluetoothHciSocket : public node::ObjectWrap {
+class BluetoothHciSocket : public node::ObjectWrap
+{
   friend class BluetoothHciL2Socket;
 
 public:
@@ -75,25 +81,25 @@ private:
   ~BluetoothHciSocket();
 
   void start();
-  int bindRaw(int* devId);
-  int bindUser(int* devId);
+  int bindRaw(int *devId);
+  int bindUser(int *devId);
   void bindControl();
   bool isDevUp();
-  void setFilter(char* data, int length);
+  void setFilter(char *data, int length);
   void stop();
 
-  void write_(char* data, int length);
+  void write_(char *data, int length);
 
   void poll();
 
   void emitErrnoError(const char *syscall);
-  int devIdFor(const int* devId, bool isUp);
-  int kernelDisconnectWorkArounds(int length, char* data);
-  bool kernelConnectWorkArounds(char* data, int length);
+  int devIdFor(const int *devId, bool isUp);
+  int kernelDisconnectWorkArounds(int length, char *data);
+  bool kernelConnectWorkArounds(char *data, int length);
   void setConnectionParameters(unsigned short connMinInterval, unsigned short connMaxInterval, unsigned short connLatency, unsigned short supervisionTimeout);
 
-  static void PollCloseCallback(uv_poll_t* handle);
-  static void PollCallback(uv_poll_t* handle, int status, int events);
+  static void PollCloseCallback(uv_poll_t *handle);
+  static void PollCallback(uv_poll_t *handle, int status, int events);
 
 private:
   Nan::Persistent<v8::Object> This;
