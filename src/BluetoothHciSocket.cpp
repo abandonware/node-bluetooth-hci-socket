@@ -351,7 +351,13 @@ bool BluetoothHciSocket::isDevUp()
 
 void BluetoothHciSocket::setFilter(char *data, int length)
 {
-  if (setsockopt(this->_socket, SOL_HCI, HCI_FILTER, data, length) < 0)
+  struct hci_filter {
+    uint32_t type_mask;
+    uint32_t event_mask[2];
+    uint16_t opcode;
+  } filter;
+  memcpy(&filter, data, length);
+  if (setsockopt(this->_socket, SOL_HCI, HCI_FILTER, &filter, sizeof(filter)) < 0)
   {
     this->emitErrnoError("setsockopt");
   }
